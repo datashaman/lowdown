@@ -1,5 +1,7 @@
-/vendor
-/.idea
-/.vscode
-/.vagrant
+/build/
+/docs/
 .env
+/.idea
+/.vagrant
+/vendor
+/.vscode
