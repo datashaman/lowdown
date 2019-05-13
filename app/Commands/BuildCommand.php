@@ -497,12 +497,12 @@ CODE;
             ksort($entities);
         }
 
-        $srcFolder = dirname(dirname(__DIR__)) . DIRECTORY_SEPARATOR . 'src';
+        $templateFolder = dirname(dirname(__DIR__)) . DIRECTORY_SEPARATOR . 'template';
 
         $buildFolder = tempnam(sys_get_temp_dir(), 'lowdown');
         unlink($buildFolder);
 
-        File::copyDirectory($srcFolder, $buildFolder);
+        File::copyDirectory($templateFolder, $buildFolder);
         file_put_contents($buildFolder . DIRECTORY_SEPARATOR . 'resources' . DIRECTORY_SEPARATOR . 'json' . DIRECTORY_SEPARATOR . 'namespaces.json', json_encode($this->namespaces, JSON_PRETTY_PRINT));
 
         $result = `cd $buildFolder; yarn; node_modules/.bin/webpack --mode=production`;
