@@ -32,12 +32,12 @@
     },
     "autoload": {
         "psr-4": {
-            "App\\": "app/"
+            "Datashaman\\Lowdown\\": "app/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Tests\\": "tests/"
+            "Datashaman\\Lowdown\\Tests\\": "tests/"
         }
     },
     "config": {

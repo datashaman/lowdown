@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests;
+namespace Datashaman\Lowdown\Tests;
 
 use Illuminate\Contracts\Console\Kernel;
 

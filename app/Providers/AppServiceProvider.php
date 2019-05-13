@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Providers;
+namespace Datashaman\Lowdown\Providers;
 
 use Cache\Adapter\Redis\RedisCachePool;
 use Github\Client as GitHubClient;
@@ -27,7 +27,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton('github', function ($app) {
             $gitHub = new GitHubClient();
 
-            if (config('lowdown.gists.cached')) {
+            if (env('LOWDOWN_GISTS_CACHED')) {
                 $redis = new Redis();
                 $redis->connect('127.0.0.1', 6379);
 
@@ -37,7 +37,7 @@ class AppServiceProvider extends ServiceProvider
             }
 
             $gitHub->authenticate(
-                config('lowdown.gists.token'),
+                env('LOWDOWN_GISTS_TOKEN'),
                 null,
                 GitHubClient::AUTH_URL_TOKEN
             );

@@ -1,12 +1,16 @@
 <?php
 
-namespace App\Commands;
+namespace Datashaman\Lowdown\Commands;
 
+use Dotenv\Dotenv;
+use Exception;
 use hanneskod\classtools\Iterator\ClassIterator;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use LaravelZero\Framework\Commands\Command;
 use phpDocumentor\Reflection\DocBlockFactory;
+use ReflectionFunction;
 use Symfony\Component\Finder\Finder;
 
 class BuildCommand extends Command
@@ -19,13 +23,18 @@ class BuildCommand extends Command
     protected $gists;
 
     /**
+     * Namespace metadata
+     *
+     * @var array
+     */
+    protected $namespaces;
+
+    /**
      * @var string
      */
     protected $signature = 'build
-        {--dest=docs/api   : Write output to this folder}
         {--gists           : Create and sync GitHub Gists for examples}
         {--gists-no-melody : Do not generate Melody links}
-        {--whitelist=*     : Namespace whitelist}
     ';
 
     /**
@@ -37,7 +46,7 @@ class BuildCommand extends Command
     {
         $namespace = $entity['ns'];
 
-        if (!isset($namespaces[$namespace])) {
+        if (!isset($this->namespaces[$namespace])) {
             $this->namespaces[$namespace] = [];
         }
 
@@ -102,7 +111,7 @@ CODE;
             'public' => true,
         ];
 
-        if ($this->gists->hasKey($function['name'])) {
+        if ($this->gists->contains($function['name'])) {
             $gist = $this->gists->get($function['name']);
             $contents = file_get_contents($gist['files'][$description]['raw_url']);
 
@@ -146,18 +155,43 @@ CODE;
         }
     }
 
-    protected function shouldGenerateDocs($name)
+    protected function shouldGenerateClass($class)
     {
-        $whitelist = explode(',', config('lowdown.whitelist'));
+        $whitelist = trim(env('LOWDOWN_WHITELIST'));
 
         if (!$whitelist) {
             return true;
         }
 
+        $whitelist = explode(',', $whitelist);
+
+        $classNamespace = $class->getNamespaceName();
+
+        foreach ($whitelist as $ns) {
+            Log::debug("Checking $classNamespace against $ns");
+
+            if ($classNamespace === $ns) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected function shouldGenerateFunction($name)
+    {
+        $whitelist = trim(env('LOWDOWN_WHITELIST'));
+
+        if (!$whitelist) {
+            return false;
+        }
+
+        $whitelist = explode(',', $whitelist);
+
         foreach ($whitelist as $ns) {
             $ns = str_replace('\\', '\\\\', $ns);
 
-            if (preg_match("#^{$ns}#i", $name)) {
+            if (preg_match("!^$ns!i", $name)) {
                 return true;
             }
         }
@@ -251,7 +285,7 @@ CODE;
             $result['parentClassName'] = $parentClass->getName();
             $result['parentClassShortName'] = $parentClass->getShortName();
 
-            if ($this->shouldGenerateDocs($parentClass->getName())) {
+            if ($this->shouldGenerateClass($parentClass)) {
                 $result['parentClass'] = $this->transform($parentClass, 'transformClass');
             }
         }
@@ -265,8 +299,6 @@ CODE;
 
     protected function transformFunction($function)
     {
-        global $cwd, $options;
-
         $result = [
             '_type' => 'function',
             'endLine' => $function->getEndLine(),
@@ -300,7 +332,7 @@ CODE;
                 $result['example'] = $example;
                 $result['output'] = $this->getExampleOutput($result['example']);
 
-                if (isset($options['gists'])) {
+                if ($this->option('gists')) {
                     $result['gist'] = $this->getGist($result);
                 }
             }
@@ -309,10 +341,8 @@ CODE;
         return $result;
     }
 
-    function transformMethod($method)
+    protected function transformMethod($method)
     {
-        global $options;
-
         $result = [
             'name' => $method->getName(),
             'modifiers' => [
@@ -352,7 +382,7 @@ CODE;
                 $result['example'] = $example;
                 $result['output'] = $this->getExampleOutput($result['example']);
 
-                if (isset($options['gists'])) {
+                if ($this->option('gists')) {
                     $result['gist'] = $this->getGist($result);
                 }
             }
@@ -426,19 +456,46 @@ CODE;
 
     public function handle()
     {
+        $cwd = getcwd();
+
+        if (file_exists($cwd . DIRECTORY_SEPARATOR . '.env')) {
+            $dotenv = Dotenv::create($cwd);
+            $dotenv->load();
+        }
+
+        // TODO Add bootstrap config instead
+        require_once $cwd . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'autoload.php';
+
         $this->namespaces = [];
 
         $finder = new Finder();
 
-        $sources = explode(',', config('lowdown.sources'));
+        $sources = explode(',', env('LOWDOWN_SOURCES'));
 
         foreach ($sources as $dir) {
             $classes = new ClassIterator($finder->in($dir));
 
             foreach ($classes as $class) {
-                if ($this->shouldGenerateDocs($class->getName())) {
+                Log::debug("Checking {$class->getName()}");
+
+                if ($this->shouldGenerateClass($class)) {
+                    Log::debug("Should generate docs for {$class->getName()}");
+
                     $this->addToNamespaces($this->transform($class, 'transformClass'));
                 }
+            }
+        }
+
+        $functions = get_defined_functions(true);
+
+        foreach($functions['user'] as $name) {
+            Log::debug("Checking {$name}");
+
+            if ($this->shouldGenerateFunction($name)) {
+                Log::debug("Should generate docs for {$name}");
+
+                $function = new ReflectionFunction($name);
+                $this->addToNamespaces($this->transform($function, 'transformFunction'));
             }
         }
 
@@ -454,7 +511,7 @@ CODE;
 
         $this->line($result);
 
-        File::copyDirectory($buildFolder . DIRECTORY_SEPARATOR . 'build', config('lowdown.dest'));
-        File::deleteDirectory($buildFolder);
+        File::copyDirectory($buildFolder . DIRECTORY_SEPARATOR . 'build', env('LOWDOWN_DEST'));
+        // File::deleteDirectory($buildFolder);
     }
 }
