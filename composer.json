@@ -6,7 +6,6 @@
             "email": "marlinf@datashaman.com"
         }
     ],
-    "name": "datashaman/lowdown",
     "description": "Documentation generator for PHP projects",
     "keywords": ["documentation-generator", "documentation", "reflection", "vuejs"],
     "type": "library",

@@ -6,7 +6,6 @@ use Dotenv\Dotenv;
 use Exception;
 use hanneskod\classtools\Iterator\ClassIterator;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use LaravelZero\Framework\Commands\Command;
 use phpDocumentor\Reflection\DocBlockFactory;
@@ -168,8 +167,6 @@ CODE;
         $classNamespace = $class->getNamespaceName();
 
         foreach ($whitelist as $ns) {
-            Log::debug("Checking $classNamespace against $ns");
-
             if ($classNamespace === $ns) {
                 return true;
             }
@@ -470,18 +467,17 @@ CODE;
 
         $finder = new Finder();
 
-        $sources = explode(',', env('LOWDOWN_SOURCES'));
+        $sources = env('LOWDOWN_SOURCES', 'app,src');
+        $sources = explode(',', $sources);
 
         foreach ($sources as $dir) {
-            $classes = new ClassIterator($finder->in($dir));
+            if (file_exists($dir)) {
+                $classes = new ClassIterator($finder->in($dir));
 
-            foreach ($classes as $class) {
-                Log::debug("Checking {$class->getName()}");
-
-                if ($this->shouldGenerateClass($class)) {
-                    Log::debug("Should generate docs for {$class->getName()}");
-
-                    $this->addToNamespaces($this->transform($class, 'transformClass'));
+                foreach ($classes as $class) {
+                    if ($this->shouldGenerateClass($class)) {
+                        $this->addToNamespaces($this->transform($class, 'transformClass'));
+                    }
                 }
             }
         }
@@ -489,11 +485,7 @@ CODE;
         $functions = get_defined_functions(true);
 
         foreach($functions['user'] as $name) {
-            Log::debug("Checking {$name}");
-
             if ($this->shouldGenerateFunction($name)) {
-                Log::debug("Should generate docs for {$name}");
-
                 $function = new ReflectionFunction($name);
                 $this->addToNamespaces($this->transform($function, 'transformFunction'));
             }
@@ -511,7 +503,7 @@ CODE;
 
         $this->line($result);
 
-        File::copyDirectory($buildFolder . DIRECTORY_SEPARATOR . 'build', env('LOWDOWN_DEST'));
+        File::copyDirectory($buildFolder . DIRECTORY_SEPARATOR . 'build', env('LOWDOWN_DEST', 'docs/api'));
         // File::deleteDirectory($buildFolder);
     }
 }
