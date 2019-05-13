@@ -491,6 +491,12 @@ CODE;
             }
         }
 
+        ksort($this->namespaces);
+
+        foreach ($this->namespaces as $ns => &$entities) {
+            ksort($entities);
+        }
+
         $srcFolder = dirname(dirname(__DIR__)) . DIRECTORY_SEPARATOR . 'src';
 
         $buildFolder = tempnam(sys_get_temp_dir(), 'lowdown');
@@ -504,6 +510,6 @@ CODE;
         $this->line($result);
 
         File::copyDirectory($buildFolder . DIRECTORY_SEPARATOR . 'build', env('LOWDOWN_DEST', 'docs/api'));
-        // File::deleteDirectory($buildFolder);
+        File::deleteDirectory($buildFolder);
     }
 }
